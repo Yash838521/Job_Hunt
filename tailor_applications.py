@@ -7,6 +7,11 @@ from datetime import datetime
 from google import genai
 from fpdf import FPDF
 
+print("DEBUG: Script started.")
+print(f"DEBUG: API Key exists: {os.getenv('GEMINI_API_KEY') is not None}")
+# Check if the file exists before trying to open it
+print(f"DEBUG: Jobs file exists: {os.path.exists('visa_approved_jobs.json')}")
+
 # ==========================================
 # 1. API CONFIGURATION & USER PROFILE DATA
 # ==========================================
