@@ -1,0 +1,100 @@
+import os
+import json
+import time
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from datetime import datetime
+from google import genai
+from fpdf import FPDF
+
+# GitHub Secrets injected as environment variables
+API_KEY = os.getenv("GEMINI_API_KEY")
+SENDER_EMAIL = os.getenv("GMAIL_EMAIL")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_PASSWORD")
+
+MASTER_CV_TEXT = """[KEEP YOUR FULL CV TEXT HERE]"""
+
+PREFERRED_CITIES = ["bristol", "london", "cambridge", "manchester", "birmingham", "leeds", "edinburgh", "glasgow", "belfast"]
+PRIORITY_TITLES = ["data scientist", "data analyst", "machine learning", "ai engineer", "analytics engineer"]
+REGISTRY_FILE = ".applied_registry.json"
+
+# --- CORE UTILITIES ---
+def evaluate_technical_fit(job_title, job_description):
+    title, desc = job_title.lower(), job_description.lower()
+    score = 100
+    if any(k in title for k in PRIORITY_TITLES): score += 20
+    if sum(1 for s in ["python", "sql", "pandas", "scikit-learn", "power bi", "tableau"] if s in desc) < 2: score -= 40
+    return score
+
+def load_silent_registry():
+    if os.path.exists(REGISTRY_FILE):
+        try:
+            with open(REGISTRY_FILE, "r", encoding="utf-8") as f: return json.load(f)
+        except: return {"urls": []}
+    return {"urls": []}
+
+def update_silent_registry(registry_data, url):
+    if url and url not in registry_data["urls"]:
+        registry_data["urls"].append(url)
+        with open(REGISTRY_FILE, "w", encoding="utf-8") as f: json.dump(registry_data, f, indent=4)
+
+# --- CLOUD-COMPATIBLE PDF ENGINE ---
+def generate_pdf_bytes(company_name, job_title, body_text_content):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("helvetica", style="B", size=15)
+    pdf.cell(0, 7, text="YASH GHORPADE", new_x="LMARGIN", new_y="NEXT")
+    # ... (Add your existing layout/links here exactly as before) ...
+    pdf.cell(0, 6, text=f"SUBJECT: Application for {job_title}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(6)
+    pdf.set_font("helvetica", size=11)
+    pdf.multi_cell(160, 6, text=body_text_content)
+    return pdf.output(dest='S').encode('latin1')
+
+# --- CLOUD-COMPATIBLE EMAIL ENGINE ---
+def send_email_with_attachments(report_text, attachments):
+    msg = MIMEMultipart()
+    msg['From'], msg['To'] = SENDER_EMAIL, SENDER_EMAIL
+    msg['Subject'] = f"🚀 Job Digest {datetime.now().strftime('%d %b')}"
+    msg.attach(MIMEText(report_text, 'plain'))
+    
+    for filename, data in attachments.items():
+        part = MIMEApplication(data, Name=filename)
+        part['Content-Disposition'] = f'attachment; filename="{filename}"'
+        msg.attach(part)
+        
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        server.starttls()
+        server.login(SENDER_EMAIL, GMAIL_APP_PASSWORD)
+        server.sendmail(SENDER_EMAIL, SENDER_EMAIL, msg.as_string())
+
+# --- MAIN RUNTIME ---
+def generate_tailored_package():
+    with open("visa_approved_jobs.json", "r") as f: jobs = json.load(f)
+    registry_data = load_silent_registry()
+    clean_leads = [j for j in jobs if j.get('url', '').strip() not in registry_data["urls"]]
+    
+    for job in clean_leads:
+        job['score'] = evaluate_technical_fit(job['title'], job['description'])
+    
+    top_jobs = sorted([j for j in clean_leads if j['score'] > 60], key=lambda x: x['score'], reverse=True)[:10]
+    
+    client = genai.Client(api_key=API_KEY)
+    email_report = []
+    attachments = {}
+    
+    for idx, job in enumerate(top_jobs, 1):
+        prompt = f"Write 3 paragraphs for a cover letter for {job['title']} at {job['company']}. CV: {MASTER_CV_TEXT}"
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+        
+        safe_name = "".join(x for x in job['company'] if x.isalnum()) + "_Cover.pdf"
+        attachments[safe_name] = generate_pdf_bytes(job['company'], job['title'], response.text)
+        email_report.append(f"#{idx}: {job['title']} at {job['company']} - {job['url']}")
+        update_silent_registry(registry_data, job.get('url', ''))
+        
+    send_email_with_attachments("\n".join(email_report), attachments)
+
+if __name__ == "__main__":
+    generate_tailored_package()
