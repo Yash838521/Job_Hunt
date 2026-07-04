@@ -63,8 +63,8 @@ def generate_tailored_package():
         prompt = f"Write a professional cover letter for {job['title']} at {job['company']} based on: {MASTER_CV_TEXT}"
         
         try:
-            # Using only one stable model to avoid quota spikes
-            response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+            # Use gemini-2.0-flash as the model name
+            response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
             
             safe_name = "".join(x for x in job['company'] if x.isalnum())
             pdf_path = os.path.join(target_dir, f"{safe_name}_Cover_Letter.pdf")
@@ -72,7 +72,7 @@ def generate_tailored_package():
             
             update_registry(registry, job['url'])
             print(f"Success. Waiting 60 seconds for quota safety...")
-            time.sleep(60) # CRITICAL: Wait 1 minute between requests
+            time.sleep(60) 
             
         except Exception as e:
             print(f"Skipping {job['company']} due to error: {e}")
