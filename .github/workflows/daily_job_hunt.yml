@@ -1,18 +1,21 @@
 name: Daily Job Hunt
 on:
   schedule:
-    - cron: '0 6 * * *' # Runs at 6:00 UTC (7:00 AM UK time)
+    - cron: '0 6 * * *'
   workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
-        with: {python-version: '3.9'}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
       - name: Install dependencies
-        run: pip install google-genai fpdf
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-genai fpdf
       - name: Run script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
