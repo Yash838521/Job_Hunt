@@ -15,8 +15,15 @@ REGISTRY_FILE = ".applied_registry.json"
 
 def load_registry():
     if os.path.exists(REGISTRY_FILE):
-        with open(REGISTRY_FILE, "r") as f:
-            return json.load(f)
+        try:
+            with open(REGISTRY_FILE, "r") as f:
+                content = f.read().strip()
+                if not content:
+                    return {"urls": []}
+                return json.loads(content)
+        except json.JSONDecodeError:
+            # If the file is corrupted, return a fresh dict
+            return {"urls": []}
     return {"urls": []}
 
 def update_registry(registry_data, url):
