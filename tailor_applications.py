@@ -1,12 +1,13 @@
 import os
 import json
 import time
+import unicodedata
 from anthropic import Anthropic
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# Your contact details
 MY_DETAILS = {
     "name": "YASH GHORPADE",
     "phone": "+44 7986 979871",
@@ -16,27 +17,32 @@ MY_DETAILS = {
     "portfolio": "https://yashghorpade.com/"
 }
 
+def clean_text(text):
+    # This removes all non-ASCII characters (like em-dashes) that crash basic PDF fonts
+    normalized = unicodedata.normalize('NFKD', text)
+    return normalized.encode('ascii', 'ignore').decode('ascii')
+
 def save_pdf(filename, company, job_title, content):
     pdf = FPDF()
     pdf.add_page()
     
-    # 1. Header Section
+    # Header
     pdf.set_font("helvetica", "B", 20)
-    pdf.cell(0, 10, MY_DETAILS['name'], ln=True, align="C")
+    pdf.cell(0, 10, MY_DETAILS['name'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
     pdf.set_font("helvetica", size=10)
-    pdf.cell(0, 5, f"{MY_DETAILS['phone']} | {MY_DETAILS['email']}", ln=True, align="C")
+    pdf.cell(0, 5, f"{MY_DETAILS['phone']} | {MY_DETAILS['email']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
-    # Clickable Links Line
-    link_y = pdf.get_y()
+    # Links
     pdf.cell(63, 5, "LinkedIn", link=MY_DETAILS['linkedin'], align="C")
     pdf.cell(63, 5, "GitHub", link=MY_DETAILS['github'], align="C")
-    pdf.cell(63, 5, "Portfolio", link=MY_DETAILS['portfolio'], align="C")
-    pdf.ln(15) # Spacing after header
+    pdf.cell(63, 5, "Portfolio", link=MY_DETAILS['portfolio'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.ln(10)
     
-    # 2. Body Section
+    # Body
     pdf.set_font("helvetica", size=12)
-    pdf.multi_cell(0, 8, content)
+    # Sanitize content before passing to multi_cell
+    pdf.multi_cell(0, 8, clean_text(content))
     
     pdf.output(filename)
 
@@ -55,15 +61,13 @@ def generate_tailored_package():
     new_jobs = [j for j in jobs if j.get('url') not in registry["urls"]][:3]
     
     for job in new_jobs:
-        # Instruction for AI to keep it clean and formal
-        prompt = (f"Write a formal, 3-paragraph cover letter for the {job['title']} role at {job['company']}. "
-                  "Do not include placeholders for contact info, as I will add the header separately. "
-                  "Focus on my data science skills and professional impact.")
+        prompt = (f"Write a formal, 3-paragraph cover letter for {job['title']} at {job['company']}. "
+                  "No placeholders. Use standard hyphens only. Focus on Data Science skills.")
         
         response = client.messages.create(
             model="claude-sonnet-5", 
             max_tokens=1500,
-            system=[{"type": "text", "text": "I am a Data Scientist. Keep tone professional and strictly formal."}],
+            system=[{"type": "text", "text": "Formal, professional Data Scientist cover letter."}],
             messages=[{"role": "user", "content": prompt}]
         )
         
