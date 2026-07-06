@@ -32,8 +32,9 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "Your Daily Tailored Cover Letters"
-          body: "Hello Yash, your daily job applications are ready. Please find the attached cover letters."
+          subject: "Your Daily Tailored Cover Letters & Links"
+          body: "Hello Yash, please find attached your tailored cover letters and a summary text file with the application links for today's jobs."
           to: yghorpade666@gmail.com
           from: GitHub Actions
-          attachments: Daily_Applications/*.pdf
+          # Updated attachment line below
+          attachments: Daily_Applications/*.pdf, Daily_Applications/job_summary.txt
