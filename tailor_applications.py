@@ -58,13 +58,18 @@ def generate_tailored_package():
             except: pass
     
     os.makedirs("Daily_Applications", exist_ok=True)
+    # Filter for jobs NOT in registry
     new_jobs = [j for j in jobs if j.get('url') not in registry["urls"]][:3]
     
-    # Generate summary with clear mapping
     summary_content = "DAILY JOB APPLICATIONS SUMMARY\n" + "="*30 + "\n\n"
     
     for job in new_jobs:
-        prompt = (f"Write a 3-paragraph professional cover letter for {job['title']} at {job['company']}. "
+        # Crucial: Use 'job' variable explicitly to pull correct title, company, and url
+        company_name = job.get('company', 'Unknown')
+        job_title = job.get('title', 'Unknown')
+        job_url = job.get('url', 'No URL provided')
+        
+        prompt = (f"Write a 3-paragraph professional cover letter for {job_title} at {company_name}. "
                   "Start with 'Dear Hiring Manager,'. No placeholders. Focus on Data Science skills.")
         
         response = client.messages.create(
@@ -75,15 +80,16 @@ def generate_tailored_package():
         )
         
         final_text = "".join([b.text for b in response.content if hasattr(b, 'text')])
-        safe_name = "".join(x for x in job['company'] if x.isalnum())
-        file_path = f"Daily_Applications/{safe_name}_Cover_Letter.pdf"
+        safe_name = "".join(x for x in company_name if x.isalnum())
+        file_name = f"{safe_name}_Cover_Letter.pdf"
+        file_path = f"Daily_Applications/{file_name}"
         
-        save_pdf(file_path, job['company'], job['title'], final_text)
+        save_pdf(file_path, company_name, job_title, final_text)
         
-        # Append specific match to summary
-        summary_content += f"FILE: {safe_name}_Cover_Letter.pdf\nCOMPANY: {job['company']}\nJOB: {job['title']}\nURL: {job['url']}\n\n"
+        # Explicit mapping
+        summary_content += f"FILE: {file_name}\nCOMPANY: {company_name}\nJOB: {job_title}\nURL: {job_url}\n\n"
         
-        registry["urls"].append(job['url'])
+        registry["urls"].append(job_url)
         with open(".applied_registry.json", "w") as f: json.dump(registry, f)
         time.sleep(65)
         
