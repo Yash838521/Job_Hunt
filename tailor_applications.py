@@ -26,22 +26,31 @@ def save_pdf(filename, company, job_title, content):
     pdf = FPDF()
     pdf.add_page()
     
-    # Header
+    # Header: Name
     pdf.set_font("helvetica", "B", 20)
     pdf.cell(0, 10, MY_DETAILS['name'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
+    # Header: Contact Info
     pdf.set_font("helvetica", size=10)
     pdf.cell(0, 5, f"{MY_DETAILS['phone']} | {MY_DETAILS['email']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
-    # Links
-    pdf.cell(63, 5, "LinkedIn", link=MY_DETAILS['linkedin'], align="C")
-    pdf.cell(63, 5, "GitHub", link=MY_DETAILS['github'], align="C")
-    pdf.cell(63, 5, "Portfolio", link=MY_DETAILS['portfolio'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    # Links: Clickable Cells
+    # Using cell(w, h, txt, link=...) makes the entire box a clickable hyperlink
+    pdf.set_text_color(0, 0, 255) # Blue color for links
+    pdf.set_font("helvetica", "U", 10) # Underline for visual indicator
+    
+    # Distribute 3 links across the width
+    link_width = 63 
+    pdf.cell(link_width, 5, "LinkedIn", link=MY_DETAILS['linkedin'], align="C")
+    pdf.cell(link_width, 5, "GitHub", link=MY_DETAILS['github'], align="C")
+    pdf.cell(link_width, 5, "Portfolio", link=MY_DETAILS['portfolio'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    
+    # Reset text color and style for the body
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("helvetica", size=12)
     pdf.ln(10)
     
     # Body
-    pdf.set_font("helvetica", size=12)
-    # Sanitize content before passing to multi_cell
     pdf.multi_cell(0, 8, clean_text(content))
     
     pdf.output(filename)
