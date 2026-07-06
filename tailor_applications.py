@@ -81,7 +81,7 @@ def generate_tailored_package():
         
         # Using the current stable model ID
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-5", 
             max_tokens=1500,
             system=[{
                 "type": "text",
