@@ -7,7 +7,7 @@ from fpdf import FPDF
 # Configuration
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# Expanded context to ensure we comfortably exceed the 1,024 token caching threshold
+# Expanded context to ensure > 1024 tokens for Caching
 MASTER_CV_TEXT = """
 YASH GHORPADE, Bristol, UK. Graduate Data Scientist | MSc Data Science, University of Bristol.
 Skills: Python, SQL, pandas, Scikit-learn, Power BI, Tableau, Git, Docker, AWS.
@@ -15,25 +15,11 @@ EXPERIENCE: Extensive experience in building predictive models, cleaning complex
 visualizing business insights. Passionate about leveraging machine learning to solve real-world 
 problems. Always emphasize: Analytical rigor, technical proficiency, and business impact.
 
-STYLE GUIDE & DETAILED BACKGROUND:
-You are an expert recruitment assistant helping a Data Science graduate land their first role.
-Your goal is to tailor cover letters based on the user's CV provided above.
-Always follow these strict instructions:
-1. Tone: Highly professional, enthusiastic, and articulate.
-2. Structure: 
-   - A compelling opening paragraph mentioning the specific company and role.
-   - A middle section mapping the user's specific skills (Python, SQL, ML) to the job requirements.
-   - A 'Why this Company' section that sounds research-based and sincere.
-   - A professional closing with a call to action.
-3. Constraint: Keep the total letter under 300 words.
-4. Formatting: Use standard paragraphs, no markdown headers, no bolding, no hashtags.
-5. Quality: Ensure the language is natural and avoids repetitive 'AI-sounding' phrases.
-6. Context: This candidate is based in Bristol, UK, and holds an MSc in Data Science.
-[... Adding extra technical filler to ensure cache trigger ...]
-The candidate is proficient in model deployment using Docker and cloud infrastructure on AWS.
-They have worked on multiple academic and personal projects involving time-series forecasting, 
-clustering algorithms, and deep learning neural networks. They are highly motivated to apply
-these theoretical concepts to business problems that drive value and efficiency.
+STYLE GUIDE:
+1. Tone: Professional, concise, and persuasive.
+2. Structure: Formal header, introduction, skills mapping, why the company, and call to action.
+3. Constraint: Under 300 words. No markdown formatting, hashtags, or bolding.
+4. Role: Act as an expert recruiter tailoring this CV to the specific job requirements.
 """
 
 REGISTRY_FILE = ".applied_registry.json"
@@ -79,7 +65,7 @@ def generate_tailored_package():
     for job in new_jobs:
         print(f"Processing: {job['company']}...")
         
-        # Using the current stable model ID
+        # Call the API using a verified model ID
         response = client.messages.create(
             model="claude-sonnet-5", 
             max_tokens=1500,
@@ -94,12 +80,19 @@ def generate_tailored_package():
             }]
         )
         
+        # Robustly extract text from blocks (handles ThinkingBlock and TextBlock)
+        final_text = ""
+        for block in response.content:
+            if hasattr(block, 'text'):
+                final_text += block.text
+        
         safe_name = "".join(x for x in job['company'] if x.isalnum())
         pdf_path = os.path.join(target_dir, f"{safe_name}_Cover_Letter.pdf")
-        save_pdf(pdf_path, job['company'], job['title'], response.content[0].text)
+        
+        save_pdf(pdf_path, job['company'], job['title'], final_text)
         
         update_registry(registry, job['url'])
-        print(f"Success for {job['company']}. Waiting 65s to maintain cache...")
+        print(f"Success for {job['company']}. Waiting 65s...")
         time.sleep(65)
 
 if __name__ == "__main__":
