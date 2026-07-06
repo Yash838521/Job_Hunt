@@ -18,7 +18,6 @@ MY_DETAILS = {
 }
 
 def clean_text(text):
-    # This removes all non-ASCII characters (like em-dashes) that crash basic PDF fonts
     normalized = unicodedata.normalize('NFKD', text)
     return normalized.encode('ascii', 'ignore').decode('ascii')
 
@@ -26,32 +25,33 @@ def save_pdf(filename, company, job_title, content):
     pdf = FPDF()
     pdf.add_page()
     
-    # Header: Name
-    pdf.set_font("helvetica", "B", 20)
+    # 1. Header Section (Cleaned)
+    pdf.set_font("helvetica", "B", 18)
     pdf.cell(0, 10, MY_DETAILS['name'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
-    # Header: Contact Info
     pdf.set_font("helvetica", size=10)
-    pdf.cell(0, 5, f"{MY_DETAILS['phone']} | {MY_DETAILS['email']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 5, f"Bristol, UK | {MY_DETAILS['phone']} | {MY_DETAILS['email']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
-    # Links: Clickable Cells
-    # Using cell(w, h, txt, link=...) makes the entire box a clickable hyperlink
-    pdf.set_text_color(0, 0, 255) # Blue color for links
-    pdf.set_font("helvetica", "U", 10) # Underline for visual indicator
+    # Clickable Links
+    pdf.set_text_color(0, 0, 255)
+    pdf.set_font("helvetica", "U", 10)
+    link_w = 63
+    pdf.cell(link_w, 5, "LinkedIn", link=MY_DETAILS['linkedin'], align="C")
+    pdf.cell(link_w, 5, "GitHub", link=MY_DETAILS['github'], align="C")
+    pdf.cell(link_w, 5, "Portfolio", link=MY_DETAILS['portfolio'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
-    # Distribute 3 links across the width
-    link_width = 63 
-    pdf.cell(link_width, 5, "LinkedIn", link=MY_DETAILS['linkedin'], align="C")
-    pdf.cell(link_width, 5, "GitHub", link=MY_DETAILS['github'], align="C")
-    pdf.cell(link_width, 5, "Portfolio", link=MY_DETAILS['portfolio'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.ln(10) # Space before body
     
-    # Reset text color and style for the body
+    # 2. Body Section
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("helvetica", size=12)
-    pdf.ln(10)
+    pdf.set_font("helvetica", size=11)
+    pdf.multi_cell(0, 7, clean_text(content))
     
-    # Body
-    pdf.multi_cell(0, 8, clean_text(content))
+    # 3. Mandatory Professional Sign-off
+    pdf.ln(10)
+    pdf.cell(0, 7, "Sincerely,", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("helvetica", "B", 11)
+    pdf.cell(0, 7, MY_DETAILS['name'], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     
     pdf.output(filename)
 
@@ -70,13 +70,15 @@ def generate_tailored_package():
     new_jobs = [j for j in jobs if j.get('url') not in registry["urls"]][:3]
     
     for job in new_jobs:
-        prompt = (f"Write a formal, 3-paragraph cover letter for {job['title']} at {job['company']}. "
-                  "No placeholders. Use standard hyphens only. Focus on Data Science skills.")
+        # Instruction to force cleaner generation
+        prompt = (f"Write a 3-paragraph professional cover letter for the {job['title']} role at {job['company']}. "
+                  "Start exactly with 'Dear Hiring Manager,'. Do not include any titles, placeholders, "
+                  "names, or contact info in the text. Focus on Data Science skills and professional impact.")
         
         response = client.messages.create(
             model="claude-sonnet-5", 
             max_tokens=1500,
-            system=[{"type": "text", "text": "Formal, professional Data Scientist cover letter."}],
+            system=[{"type": "text", "text": "You are a professional assistant. Provide only the 3-paragraph body text."}],
             messages=[{"role": "user", "content": prompt}]
         )
         
