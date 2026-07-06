@@ -25,3 +25,15 @@ jobs:
         with:
           name: daily-cover-letters
           path: Daily_Applications/*.pdf
+      - name: Send Email with Attachments
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Your Daily Tailored Cover Letters"
+          body: "Hello Yash, your daily job applications are ready. Please find the attached cover letters."
+          to: yghorpade666@gmail.com
+          from: GitHub Actions
+          attachments: Daily_Applications/*.pdf
