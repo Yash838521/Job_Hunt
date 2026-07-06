@@ -19,6 +19,9 @@ jobs:
       - name: Run script
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GMAIL_EMAIL: ${{ secrets.GMAIL_EMAIL }}
-          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
         run: python tailor_applications.py
+      - name: Upload Cover Letters
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-cover-letters
+          path: Daily_Applications/*.pdf
