@@ -7,18 +7,15 @@ from fpdf import FPDF
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# Use a clean, simple master text
 MASTER_CV_TEXT = "YASH GHORPADE, Bristol, UK. Data Scientist. Skills: Python, SQL, ML, AWS."
 
 def clean_text(text):
-    # This strips all non-ASCII characters to prevent UnicodeEncodeError
     return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
 
 def save_pdf(filename, company, job_title, content):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("helvetica", size=11)
-    # Clean text to ensure it never crashes the PDF generator
     pdf.cell(0, 10, clean_text(f"Application for {job_title} at {company}"), ln=True)
     pdf.multi_cell(0, 10, clean_text(content))
     pdf.output(filename)
@@ -28,10 +25,16 @@ def generate_tailored_package():
     with open("visa_approved_jobs.json", "r") as f:
         jobs = json.load(f)
     
-    registry = {}
+    # Bulletproof Registry Loading
+    registry = {"urls": []}
     if os.path.exists(".applied_registry.json"):
-        with open(".applied_registry.json", "r") as f: registry = json.load(f)
-    if "urls" not in registry: registry["urls"] = []
+        try:
+            with open(".applied_registry.json", "r") as f:
+                content = f.read()
+                if content.strip():  # Only load if file is not empty
+                    registry = json.loads(content)
+        except json.JSONDecodeError:
+            print("Warning: Registry file corrupted, resetting...")
     
     os.makedirs("Daily_Applications", exist_ok=True)
     new_jobs = [j for j in jobs if j.get('url') not in registry["urls"]][:3]
