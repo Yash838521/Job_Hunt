@@ -1,98 +1,67 @@
 import os
 import json
 import time
+import unicodedata
 from anthropic import Anthropic
 from fpdf import FPDF
 
-# Configuration
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# Expanded context to ensure > 1024 tokens for Caching
 MASTER_CV_TEXT = """
-YASH GHORPADE, Bristol, UK. Graduate Data Scientist | MSc Data Science, University of Bristol.
+YASH GHORPADE, Bristol, UK. Graduate Data Scientist. 
 Skills: Python, SQL, pandas, Scikit-learn, Power BI, Tableau, Git, Docker, AWS.
-EXPERIENCE: Extensive experience in building predictive models, cleaning complex datasets, and 
-visualizing business insights. Passionate about leveraging machine learning to solve real-world 
-problems. Always emphasize: Analytical rigor, technical proficiency, and business impact.
-
-STYLE GUIDE:
-1. Tone: Professional, concise, and persuasive.
-2. Structure: Formal header, introduction, skills mapping, why the company, and call to action.
-3. Constraint: Under 300 words. No markdown formatting, hashtags, or bolding.
-4. Role: Act as an expert recruiter tailoring this CV to the specific job requirements.
+STYLE GUIDE: Professional, concise, under 300 words. No bold, no markdown, no hashtags.
 """
 
-REGISTRY_FILE = ".applied_registry.json"
-
-def load_registry():
-    if os.path.exists(REGISTRY_FILE):
-        try:
-            with open(REGISTRY_FILE, "r") as f: return json.load(f)
-        except: return {"urls": []}
-    return {"urls": []}
-
-def update_registry(registry_data, url):
-    registry_data["urls"].append(url)
-    with open(REGISTRY_FILE, "w") as f:
-        json.dump(registry_data, f, indent=4)
+def clean_text(text):
+    # Remove characters that cause UnicodeEncodeError (like smart quotes or en-dashes)
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
 
 def save_pdf(filename, company, job_title, content):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("helvetica", size=11)
-    pdf.cell(0, 10, f"Application for {job_title} at {company}", ln=True)
-    pdf.multi_cell(0, 10, content)
+    
+    # Clean the inputs before writing
+    clean_title = clean_text(f"Application for {job_title} at {company}")
+    clean_content = clean_text(content)
+    
+    pdf.cell(0, 10, clean_title, ln=True)
+    pdf.multi_cell(0, 10, clean_content)
     pdf.output(filename)
 
 def generate_tailored_package():
-    if not os.path.exists("visa_approved_jobs.json"):
-        print("Error: visa_approved_jobs.json not found.")
-        return
+    if not os.path.exists("visa_approved_jobs.json"): return
 
     with open("visa_approved_jobs.json", "r") as f:
         jobs = json.load(f)
     
-    registry = load_registry()
-    target_dir = "Daily_Applications"
-    os.makedirs(target_dir, exist_ok=True)
+    registry = {}
+    if os.path.exists(".applied_registry.json"):
+        with open(".applied_registry.json", "r") as f: registry = json.load(f)
+    if "urls" not in registry: registry["urls"] = []
     
+    os.makedirs("Daily_Applications", exist_ok=True)
     new_jobs = [j for j in jobs if j.get('url') not in registry["urls"]][:3]
     
-    if not new_jobs:
-        print("No new jobs to process.")
-        return
-
     for job in new_jobs:
         print(f"Processing: {job['company']}...")
         
-        # Call the API using a verified model ID
         response = client.messages.create(
             model="claude-sonnet-5", 
             max_tokens=1500,
-            system=[{
-                "type": "text",
-                "text": f"CV and Instructions: {MASTER_CV_TEXT}",
-                "cache_control": {"type": "ephemeral"}
-            }],
-            messages=[{
-                "role": "user", 
-                "content": f"Write a professional cover letter for the role of {job['title']} at {job['company']}."
-            }]
+            system=[{"type": "text", "text": MASTER_CV_TEXT, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": f"Write a cover letter for {job['title']} at {job['company']}."}]
         )
         
-        # Robustly extract text from blocks (handles ThinkingBlock and TextBlock)
-        final_text = ""
-        for block in response.content:
-            if hasattr(block, 'text'):
-                final_text += block.text
+        final_text = "".join([b.text for b in response.content if hasattr(b, 'text')])
         
         safe_name = "".join(x for x in job['company'] if x.isalnum())
-        pdf_path = os.path.join(target_dir, f"{safe_name}_Cover_Letter.pdf")
+        save_pdf(f"Daily_Applications/{safe_name}_Cover_Letter.pdf", job['company'], job['title'], final_text)
         
-        save_pdf(pdf_path, job['company'], job['title'], final_text)
+        registry["urls"].append(job['url'])
+        with open(".applied_registry.json", "w") as f: json.dump(registry, f)
         
-        update_registry(registry, job['url'])
-        print(f"Success for {job['company']}. Waiting 65s...")
         time.sleep(65)
 
 if __name__ == "__main__":
