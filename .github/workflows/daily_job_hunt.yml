@@ -15,12 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install anthropic fpdf
-      - name: Verify Available Models
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          python -c "from anthropic import Anthropic; client = Anthropic(); print([m.id for m in client.models.list().data if 'sonnet' in m.id])"
+          pip install anthropic fpdf2
       - name: Run script
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
